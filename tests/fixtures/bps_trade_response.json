@@ -1,0 +1,66 @@
+{
+  "status": "200",
+  "data-availability": "available",
+  "data": [
+    {
+      "jenis": "ekspor",
+      "kode_barang": "15111000",
+      "nama_barang": "Crude Palm Oil",
+      "kode_negara": "CN",
+      "nama_negara": "China",
+      "kode_pelabuhan": "ID-BEL",
+      "nama_pelabuhan": "Belawan",
+      "periode": "2023",
+      "nilai": "1250000.50",
+      "berat_bersih": "2500000.00"
+    },
+    {
+      "jenis": "ekspor",
+      "kode_barang": "15111000",
+      "nama_barang": "Crude Palm Oil",
+      "kode_negara": "IN",
+      "nama_negara": "India",
+      "kode_pelabuhan": "ID-BEL",
+      "nama_pelabuhan": "Belawan",
+      "periode": "2023",
+      "nilai": "980000.25",
+      "berat_bersih": "1900000.00"
+    },
+    {
+      "jenis": "impor",
+      "kode_barang": "10059090",
+      "nama_barang": "Maize (Corn)",
+      "kode_negara": "US",
+      "nama_negara": "United States",
+      "kode_pelabuhan": "ID-TPP",
+      "nama_pelabuhan": "Tanjung Priok",
+      "periode": "2023",
+      "nilai": "450000.75",
+      "berat_bersih": "1200000.00"
+    },
+    {
+      "jenis": "impor",
+      "kode_barang": "10059090",
+      "nama_barang": "Maize (Corn)",
+      "kode_negara": "BR",
+      "nama_negara": "Brazil",
+      "kode_pelabuhan": "ID-TPP",
+      "nama_pelabuhan": "Tanjung Priok",
+      "periode": "2023",
+      "nilai": "320000.00",
+      "berat_bersih": "900000.00"
+    },
+    {
+      "jenis": "ekspor",
+      "kode_barang": "15111000",
+      "nama_barang": "Crude Palm Oil",
+      "kode_negara": "CN",
+      "nama_negara": "China",
+      "kode_pelabuhan": "ID-BEL",
+      "nama_pelabuhan": "Belawan",
+      "periode": "2024",
+      "nilai": "1350000.00",
+      "berat_bersih": "2700000.00"
+    }
+  ]
+}

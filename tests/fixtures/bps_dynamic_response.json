@@ -1,0 +1,27 @@
+{
+  "status": "200",
+  "data-availability": "available",
+  "variable": [
+    {
+      "id": "145",
+      "label": "PDRB Atas Dasar Harga Konstan",
+      "description": "Produk Domestik Regional Bruto Atas Dasar Harga Konstan 2010"
+    }
+  ],
+  "vervar": [],
+  "infotabel": {
+    "tabel": {
+      "id": "1234",
+      "kode": "T-001",
+      "nama": "PDRB Atas Dasar Harga Konstan Menurut Provinsi",
+      "subjek": "Ekonomi",
+      "satuan": "Miliar Rupiah",
+      "periode": "Tahunan"
+    }
+  },
+  "datacontent": [
+    ["2020", "126.51", "508.83", "32.75", "1.05"],
+    ["2021", "128.94", "519.07", "33.42", "1.07"],
+    ["2022", "133.45", "536.12", "34.58", "1.10"]
+  ]
+}
