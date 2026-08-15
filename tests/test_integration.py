@@ -70,6 +70,7 @@ class TestIntegrationWithRealBPSStructure:
             "region_id",
             "year",
             "value",
+            "period_type",
         ]
 
         # Verify region mapping is correct

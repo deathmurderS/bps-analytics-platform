@@ -40,5 +40,5 @@ jobs:
         run: |
           python -m src.pipeline \
             --domain 0000 \
-            --var 145 \
+            --var 192 \
             --th 2020,2021,2022,2023
