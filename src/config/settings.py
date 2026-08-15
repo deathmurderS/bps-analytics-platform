@@ -24,7 +24,7 @@ class Settings:
 
         # PostgreSQL
         self.postgres_host: str = os.getenv("POSTGRES_HOST", "localhost")
-        self.postgres_port: int = int(os.getenv("POSTGRES_PORT", "5432"))
+        self.postgres_port: int = int(os.getenv("POSTGRES_PORT", "5432").strip() or "5432")
         self.postgres_db: str = os.getenv("POSTGRES_DB", "bps_dw")
         self.postgres_user: str = os.getenv("POSTGRES_USER", "postgres")
         self.postgres_password: str = os.getenv("POSTGRES_PASSWORD", "postgres")
