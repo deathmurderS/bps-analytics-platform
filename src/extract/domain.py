@@ -33,18 +33,23 @@ class DomainExtractor:
     ) -> List[Dict[str, Any]]:
         """Parse domain response into a list of region records.
 
-        Handles both dict responses with {"data": [...]} structure
-        and direct list responses.
-
-        The BPS domain response typically has the structure:
+        Handles the actual BPS API response structure:
         {
-            "status": "200",
+            "status": "OK",
             "data-availability": "available",
             "data": [
-                {"kode": "1100", "nama": "ACEH"},
-                ...
+                {"page": 1, "pages": 1, "total": 34},  # pagination info
+                [
+                    {"domain_id": "1100", "domain_name": "Aceh", ...},
+                    ...
+                ]
             ]
         }
+
+        Also handles:
+        - Direct list responses
+        - Dict responses with {"data": [...]} structure
+        - Legacy format with {"kode": "...", "nama": "..."} items
         """
         # Handle if response is already a list
         if isinstance(response, list):
@@ -53,14 +58,33 @@ class DomainExtractor:
             # Handle dict response with "data" key
             data = response.get("data", []) if isinstance(response, dict) else []
 
+        # Extract the actual domain list from the response
+        # The BPS API returns [pagination_info, [domain_items]]
+        domain_items: List[Any] = []
+        for item in data:
+            if isinstance(item, list):
+                # This is the actual list of domain items
+                domain_items = item
+                break
+            elif isinstance(item, dict) and "domain_id" in item:
+                # Direct dict item
+                domain_items.append(item)
+            elif isinstance(item, dict) and "kode" in item:
+                # Legacy format
+                domain_items.append(item)
+
         records: List[Dict[str, Any]] = []
 
-        for item in data:
+        for item in domain_items:
             if isinstance(item, dict):
+                # Handle both actual BPS format (domain_id/domain_name)
+                # and legacy format (kode/nama)
+                region_code = item.get("domain_id") or item.get("kode")
+                region_name = item.get("domain_name") or item.get("nama")
                 records.append(
                     {
-                        "region_code": item.get("kode"),
-                        "region_name": item.get("nama"),
+                        "region_code": region_code,
+                        "region_name": region_name,
                     }
                 )
 
