@@ -22,9 +22,13 @@ class Settings:
             "BPS_API_BASE_URL", "https://webapi.bps.go.id/v1/api"
         )
 
-        # PostgreSQL
+        # PostgreSQL - supports either DATABASE_URL (full connection string)
+        # or individual POSTGRES_* variables
+        self.database_url: str = os.getenv("DATABASE_URL", "").strip()
         self.postgres_host: str = os.getenv("POSTGRES_HOST", "localhost")
-        self.postgres_port: int = int(os.getenv("POSTGRES_PORT", "5432").strip() or "5432")
+        self.postgres_port: int = int(
+            os.getenv("POSTGRES_PORT", "5432").strip() or "5432"
+        )
         self.postgres_db: str = os.getenv("POSTGRES_DB", "bps_dw")
         self.postgres_user: str = os.getenv("POSTGRES_USER", "postgres")
         self.postgres_password: str = os.getenv("POSTGRES_PASSWORD", "postgres")
@@ -36,7 +40,23 @@ class Settings:
 
     @property
     def postgres_url(self) -> str:
-        """Build SQLAlchemy connection URL."""
+        """Build SQLAlchemy connection URL.
+
+        Uses DATABASE_URL if provided (e.g., Neon connection string),
+        otherwise builds from individual POSTGRES_* variables.
+        """
+        if self.database_url:
+            # Ensure the URL uses the psycopg2 driver
+            if self.database_url.startswith("postgres://"):
+                return self.database_url.replace(
+                    "postgres://", "postgresql+psycopg2://", 1
+                )
+            if self.database_url.startswith("postgresql://"):
+                return self.database_url.replace(
+                    "postgresql://", "postgresql+psycopg2://", 1
+                )
+            return self.database_url
+
         return (
             f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
