@@ -21,13 +21,13 @@ SELECT
         ORDER BY d.year
     ) AS previous_value,
     ROUND(
-        (SUM(f.value) - LAG(SUM(f.value)) OVER (
+        ((SUM(f.value) - LAG(SUM(f.value)) OVER (
             PARTITION BY i.indicator_key
             ORDER BY d.year
         )) / NULLIF(LAG(SUM(f.value)) OVER (
             PARTITION BY i.indicator_key
             ORDER BY d.year
-        ), 0) * 100,
+        ), 0) * 100)::numeric,
         2
     ) AS growth_pct
 FROM warehouse.fact_economic f
@@ -64,13 +64,13 @@ SELECT
         ORDER BY d.year
     ) AS previous_value,
     ROUND(
-        (f.value - LAG(f.value) OVER (
+        ((f.value - LAG(f.value) OVER (
             PARTITION BY r.region_key, i.indicator_key
             ORDER BY d.year
         )) / NULLIF(LAG(f.value) OVER (
             PARTITION BY r.region_key, i.indicator_key
             ORDER BY d.year
-        ), 0) * 100,
+        ), 0) * 100)::numeric,
         2
     ) AS growth_pct
 FROM warehouse.fact_economic f
@@ -108,13 +108,13 @@ SELECT
         ORDER BY d.year
     ) AS previous_national_value,
     ROUND(
-        (SUM(f.value) - LAG(SUM(f.value)) OVER (
+        ((SUM(f.value) - LAG(SUM(f.value)) OVER (
             PARTITION BY i.indicator_key
             ORDER BY d.year
         )) / NULLIF(LAG(SUM(f.value)) OVER (
             PARTITION BY i.indicator_key
             ORDER BY d.year
-        ), 0) * 100,
+        ), 0) * 100)::numeric,
         2
     ) AS national_growth_pct,
     COUNT(DISTINCT r.region_key) AS region_count
