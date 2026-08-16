@@ -93,6 +93,19 @@ class PostgresLoader:
             index=False,
         )
 
+        # Create unique constraint on conflict columns if it doesn't exist
+        # This is required for ON CONFLICT to work
+        conflict_cols_str = ", ".join(f'"{col}"' for col in conflict_columns)
+        constraint_name = f"uq_{table_name}_{'_'.join(conflict_columns)}"
+        try:
+            self.execute_sql(
+                f"ALTER TABLE {schema}.{table_name} "
+                f"ADD CONSTRAINT {constraint_name} UNIQUE ({conflict_cols_str})"
+            )
+        except Exception:
+            # Constraint may already exist, that's fine
+            pass
+
         # Determine columns to update on conflict
         if update_columns is None:
             update_columns = [
