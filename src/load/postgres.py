@@ -21,9 +21,29 @@ class PostgresLoader:
         return self.engine
 
     def execute_sql(self, sql: str) -> None:
-        """Execute raw SQL statement."""
-        with self.engine.begin() as conn:
-            conn.execute(text(sql))
+        """Execute raw SQL or SQL script (multi-statement) using driver-level execution.
+
+        Uses exec_driver_sql to support multiple statements in one call,
+        which is more reliable than splitting and executing each statement
+        individually (avoids issues where a later statement references a
+        table created by an earlier statement).
+
+        Args:
+            sql: SQL script containing one or more statements.
+
+        Raises:
+            RuntimeError: If the SQL execution fails.
+        """
+        try:
+            with self.engine.begin() as conn:
+                # exec_driver_sql sends SQL directly to the DBAPI driver and
+                # supports multiple statements separated by semicolons.
+                conn.exec_driver_sql(sql)
+        except Exception as exc:
+            # Re-raise with context for debugging
+            raise RuntimeError(
+                f"Failed executing SQL script (length={len(sql)} chars): {exc}"
+            ) from exc
 
     def load_dataframe(
         self,
@@ -180,3 +200,21 @@ class PostgresLoader:
     def close(self) -> None:
         """Dispose of the engine."""
         self.engine.dispose()
+
+    def _table_exists(self, schema: str, table: str) -> bool:
+        """Check if a table exists in the given schema.
+
+        Uses to_regclass which is a fast PostgreSQL function that
+        returns NULL if the relation doesn't exist.
+        """
+        try:
+            with self.engine.connect() as conn:
+                res = conn.execute(
+                    text(
+                        "SELECT to_regclass(:qualified) IS NOT NULL AS exists"
+                    ),
+                    {"qualified": f"{schema}.{table}"},
+                )
+                return bool(res.scalar())
+        except Exception:
+            return False

@@ -401,28 +401,63 @@ class Pipeline:
         except Exception:
             return True
 
+    def _table_exists(self, schema: str, table: str) -> bool:
+        """Check if a table exists in the given schema.
+
+        Uses PostgreSQL's to_regclass function which returns NULL
+        if the relation doesn't exist.
+        """
+        from sqlalchemy import text
+
+        try:
+            with self.loader.connect().connect() as conn:
+                res = conn.execute(
+                    text("SELECT to_regclass(:qualified) IS NOT NULL AS exists"),
+                    {"qualified": f"{schema}.{table}"},
+                )
+                return bool(res.scalar())
+        except Exception:
+            return False
+
     def _create_tables(self) -> None:
-        """Create warehouse tables if they don't exist."""
+        """Create warehouse tables if they don't exist.
+
+        Executes each SQL file as a single script to preserve statement
+        order (CREATE TABLE before CREATE INDEX), which prevents
+        UndefinedTable errors when an index references a table.
+        """
         sql_dir = Path(__file__).resolve().parent.parent / "sql" / "ddl"
 
-        for filename in ["schemas.sql", "dimensions.sql", "facts.sql"]:
-            sql_file = sql_dir / filename
-            if sql_file.exists():
-                sql_content = sql_file.read_text()
-                # Split statements safely using sqlparse
-                statements = split(sql_content)
+        # Execute in dependency order: schemas first, then dimensions, then facts
+        file_order = ["schemas.sql", "dimensions.sql", "facts.sql"]
 
-                # Use loader.execute_sql for each safe statement, but fail on first error
-                for statement in statements:
-                    statement = str(statement).strip()
-                    if not statement or statement.startswith("--"):
-                        continue
-                    try:
-                        self.loader.execute_sql(statement)
-                    except Exception as exc:
-                        logger.error(f"  Failed executing {filename}: {exc}")
-                        # Fail fast so we don't continue with a partially-created schema
-                        raise
+        for filename in file_order:
+            sql_file = sql_dir / filename
+            if not sql_file.exists():
+                logger.warning(f"  SQL file not found: {sql_file}")
+                continue
+
+            sql_content = sql_file.read_text()
+            try:
+                # Execute the entire file as a script
+                # exec_driver_sql handles multi-statement scripts correctly
+                self.loader.execute_sql(sql_content)
+                logger.info(f"  Executed DDL file: {filename}")
+            except Exception as exc:
+                logger.error(f"  Failed executing {filename}: {exc}")
+                # Fail fast to avoid subsequent UndefinedTable errors
+                raise
+
+            # After facts.sql, verify critical tables exist
+            if filename == "facts.sql":
+                missing = []
+                for table in ["fact_economic", "fact_trade"]:
+                    if not self._table_exists("warehouse", table):
+                        missing.append(table)
+                if missing:
+                    raise RuntimeError(
+                        f"DDL executed but tables missing in warehouse: {missing}"
+                    )
 
     def _build_marts(self) -> None:
         """Build Data Mart materialized views.
@@ -441,20 +476,13 @@ class Pipeline:
 
         sql_content = mart_sql_path.read_text()
 
-        # Split statements safely using sqlparse
-        statements = split(sql_content)
-
-        # Execute each statement, but fail on first error
-        for statement in statements:
-            statement = str(statement).strip()
-            if not statement or statement.startswith("--"):
-                continue
-            try:
-                self.loader.execute_sql(statement)
-                logger.info(f"  Executed mart statement: {statement[:60]}...")
-            except Exception as exc:
-                logger.error(f"  Failed executing mart statement: {exc}")
-                raise
+        # Execute the entire script - preserves statement order
+        try:
+            self.loader.execute_sql(sql_content)
+            logger.info("  Executed marts.sql script")
+        except Exception as exc:
+            logger.error(f"  Failed executing mart SQL: {exc}")
+            raise
 
 
 def main() -> None:
