@@ -3,6 +3,10 @@ name: BPS Data Warehouse ETL
 on:
   workflow_dispatch:
 
+  schedule:
+    # Run every Monday at 02:00 UTC (09:00 WIB)
+    - cron: "0 2 * * 1"
+
 jobs:
   etl:
     runs-on: ubuntu-latest
@@ -42,3 +46,40 @@ jobs:
             --domain 0000 \
             --var 192 \
             --th 2020,2021,2022,2023
+
+      - name: Verify data quality in warehouse
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python - <<'EOF'
+          import os
+          import sys
+          from sqlalchemy import create_engine, text
+
+          engine = create_engine(os.environ["DATABASE_URL"])
+
+          # Verify key tables have data
+          checks = {
+              "fact_economic": "SELECT COUNT(*) FROM warehouse.fact_economic",
+              "dim_date": "SELECT COUNT(*) FROM warehouse.dim_date",
+              "dim_region": "SELECT COUNT(*) FROM warehouse.dim_region",
+              "dim_indicator": "SELECT COUNT(*) FROM warehouse.dim_indicator",
+          }
+
+          failed = False
+          with engine.connect() as conn:
+              for table, query in checks.items():
+                  count = conn.execute(text(query)).scalar()
+                  print(f"  {table}: {count} rows")
+                  if count == 0:
+                      print(f"  ❌ {table} is EMPTY!")
+                      failed = True
+                  else:
+                      print(f"  ✅ {table} has data")
+
+          if failed:
+              print("Data quality check FAILED: some tables are empty")
+              sys.exit(1)
+
+          print("Data quality check PASSED: all tables have data")
+          EOF

@@ -675,9 +675,80 @@ python -m pytest tests/ --cov=src --cov-report=term-missing
 - [x] Cross-domain economic_trade_bridge mart
 - [x] Trade fixture + 12 tests
 
-### Phase 6: Advanced
+### Phase 6: Deployment & Monitoring ✅
+- [x] GitHub Actions scheduled ETL (setiap Senin 02:00 UTC)
+- [x] Neon PostgreSQL cloud database
+- [x] Data quality verification gate setelah ETL
+- [x] Monitoring via GitHub Actions status
+
+### Phase 7: Advanced
 - [ ] Forecasting / ML
 - [ ] Data lineage visualization
+- [ ] Online dashboard (Metabase/Streamlit)
+
+---
+
+## Deployment & Monitoring
+
+### Arsitektur Deployment
+
+```
+             BPS WebAPI
+                 ↓
+          GitHub Actions
+                 ↓
+          ETL + Data Quality
+                 ↓
+        ┌─────────────────┐
+        │ Neon PostgreSQL │
+        │   Data Warehouse│
+        └────────┬────────┘
+                 ↓
+            Data Mart
+                 ↓
+             Dashboard
+                 ↓
+       Portfolio / Recruiter
+```
+
+### GitHub Actions Workflow
+
+Workflow `.github/workflows/etl.yml` berjalan secara:
+
+1. **Manual** — via `workflow_dispatch` (tombol "Run workflow" di Actions tab)
+2. **Scheduled** — setiap **Senin jam 02:00 UTC (09:00 WIB)** via cron
+
+### Alur Workflow
+
+```
+1. Checkout repository
+2. Setup Python 3.11
+3. Install dependencies
+4. Run tests (pytest)
+5. Run BPS ETL pipeline
+6. Verify data quality in warehouse
+   - fact_economic: harus > 0 rows
+   - dim_date: harus > 0 rows
+   - dim_region: harus > 0 rows
+   - dim_indicator: harus > 0 rows
+```
+
+### Monitoring
+
+GitHub Actions berfungsi sebagai **monitoring dasar pipeline**:
+
+- ✅ **Hijau** = ETL sukses, data quality pass
+- ❌ **Merah** = ETL gagal atau data quality fail
+- 📅 **Scheduled** = Pipeline otomatis jalan setiap minggu
+
+### Setup Secrets
+
+Tambahkan secrets di **GitHub → Settings → Secrets and variables → Actions**:
+
+| Secret | Deskripsi |
+|--------|-----------|
+| `BPS_API_KEY` | API key BPS WebAPI |
+| `DATABASE_URL` | Full Neon PostgreSQL connection string |
 
 ---
 
