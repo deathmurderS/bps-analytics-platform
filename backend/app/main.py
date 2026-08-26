@@ -4,9 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from backend.app.api import economic, metadata, overview, regional, trade
-from backend.app.config import settings
-from backend.app.db.database import engine
+from app.api import economic, metadata, overview, regional, trade
+from app.config import settings
+from app.db.database import engine
 
 app = FastAPI(
     title="BPS Analytics Platform API",

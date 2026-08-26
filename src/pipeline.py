@@ -308,6 +308,51 @@ class Pipeline:
 
         return dim_dataset, dim_glossary, glossary_records
 
+    def _infer_aggregation_method(
+        self,
+        indicator_name: Optional[str],
+        unit: Optional[str],
+    ) -> str:
+        """Infer the semantic aggregation method for an indicator.
+
+        Initial rules are intentionally conservative:
+        - additive totals / nominal values -> SUM
+        - percentages, rates, indices -> N/A until a valid national method exists
+        - placeholders for future support: AVG, WEIGHTED_AVG, DIRECT_NATIONAL
+        """
+        normalized_name = (indicator_name or "").strip().lower()
+        normalized_unit = (unit or "").strip().lower()
+
+        non_additive_markers = (
+            "persen",
+            "percentage",
+            "rasio",
+            "ratio",
+            "tingkat",
+            "rate",
+            "indeks",
+            "index",
+        )
+        additive_markers = (
+            "rupiah",
+            "miliar",
+            "juta",
+            "ribu",
+            "ton",
+            "kg",
+            "orang",
+            "unit",
+        )
+
+        if any(marker in normalized_unit for marker in non_additive_markers):
+            return "N/A"
+        if any(marker in normalized_name for marker in non_additive_markers):
+            return "N/A"
+        if any(marker in normalized_unit for marker in additive_markers):
+            return "SUM"
+
+        return "SUM"
+
     def _build_dim_indicator(
         self,
         variables: List[Dict[str, Any]],
@@ -315,28 +360,32 @@ class Pipeline:
     ) -> pd.DataFrame:
         """Build the dim_indicator DataFrame from staged variables.
 
-        The aggregation_method column is part of the semantic layer:
-        it defines how the indicator should be aggregated nationally.
-        Default is 'SUM'. Could be 'AVG' for average-based indicators
-        or 'N/A' for rates/indices that should not be aggregated.
+        Supported aggregation methods:
+        - SUM
+        - AVG
+        - WEIGHTED_AVG
+        - DIRECT_NATIONAL
+        - N/A
         """
         records = []
         for var in variables:
+            indicator_name = var.get("variable_name")
+            unit = metadata.get("unit")
             records.append(
                 {
                     "indicator_key": str(var.get("variable_id")),
                     "indicator_code": str(var.get("variable_id")),
-                    "indicator_name": var.get("variable_name"),
+                    "indicator_name": indicator_name,
                     "subject_name": metadata.get("subject"),
                     "category_name": None,
-                    "unit": metadata.get("unit"),
+                    "unit": unit,
                     "frequency": metadata.get("frequency"),
                     "concept": None,
                     "definition": None,
                     "classification": None,
                     "measure": None,
                     "data_source": None,
-                    "aggregation_method": "SUM",
+                    "aggregation_method": self._infer_aggregation_method(indicator_name, unit),
                 }
             )
         return pd.DataFrame(records)
@@ -344,14 +393,18 @@ class Pipeline:
     def _build_dim_region(self) -> pd.DataFrame:
         """Build the dim_region DataFrame from the Domain API.
 
-        Fetches the province list and maps region codes to names.
-        For national data (domain='0000'), creates a single national row.
+        For national data (domain='0000'), datacontent values map to
+        provinces, so we load the full province list. For a specific
+        province domain, load regencies for that province.
         """
-        if self.domain and self.domain != "0000":
-            # Try to fetch province list to map region codes
-            try:
+        try:
+            if self.domain and self.domain != "0000":
+                response = self.domain_extractor.fetch_regencies()
+            else:
                 response = self.domain_extractor.fetch_provinces()
-                regions = self.domain_extractor.parse_domain_list(response)
+
+            regions = self.domain_extractor.parse_domain_list(response)
+            if regions:
                 records = [
                     {
                         "region_key": str(r["region_code"]),
@@ -364,35 +417,23 @@ class Pipeline:
                     for r in regions
                 ]
                 return pd.DataFrame(records)
-            except Exception as exc:
-                logger.warning(f"  Could not fetch domain list: {exc}")
-                # Fall back to a minimal region record
-                return pd.DataFrame(
-                    [
-                        {
-                            "region_key": str(self.domain),
-                            "region_code": str(self.domain),
-                            "region_name": f"Region {self.domain}",
-                            "province_name": None,
-                            "regency_name": None,
-                            "district_name": None,
-                        }
-                    ]
-                )
-        else:
-            # National data
-            return pd.DataFrame(
-                [
-                    {
-                        "region_key": "0000",
-                        "region_code": "0000",
-                        "region_name": "INDONESIA",
-                        "province_name": "INDONESIA",
-                        "regency_name": None,
-                        "district_name": None,
-                    }
-                ]
-            )
+        except Exception as exc:
+            logger.warning(f"  Could not fetch domain list: {exc}")
+
+        # Fall back to a minimal region record
+        region_key = str(self.domain or "0000")
+        return pd.DataFrame(
+            [
+                {
+                    "region_key": region_key,
+                    "region_code": region_key,
+                    "region_name": "INDONESIA" if region_key == "0000" else f"Region {region_key}",
+                    "province_name": "INDONESIA" if region_key == "0000" else None,
+                    "regency_name": None,
+                    "district_name": None,
+                }
+            ]
+        )
 
     def _table_is_empty(self, table_name: str) -> bool:
         """Check if a warehouse table is empty."""

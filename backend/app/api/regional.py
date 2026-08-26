@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 
-from backend.app.db.database import engine
+from app.db.database import engine
 
 router = APIRouter(prefix="/api/regional", tags=["regional"])
 

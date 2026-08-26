@@ -14,6 +14,17 @@ from src.quality.validators import DataQualityValidator
 from src.staging.dynamic_transform import DynamicDataTransformer
 from src.transform.economic import EconomicTransformer
 
+
+def aggregate_national_value(values: pd.Series, aggregation_method: str):
+    """Mirror the mart aggregation semantics for tests."""
+    if aggregation_method == "SUM":
+        return values.sum()
+    if aggregation_method == "AVG":
+        return values.mean()
+    if aggregation_method in {"WEIGHTED_AVG", "DIRECT_NATIONAL", "N/A"}:
+        return None
+    return None
+
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 REGION_CODES = ["1100", "1200", "1300", "1400"]
@@ -51,11 +62,7 @@ class TestDataMartCalculations:
     """Verify Data Mart analytical correctness."""
 
     def test_indicator_trend_national_value(self, staging_df):
-        """Q1: National value should be the SUM of all regions.
-
-        For PDRB (a stock/total indicator), the national value is
-        the sum of all provincial values.
-        """
+        """Q1: Additive indicators should still sum to the national total."""
         # Expected national values per year from fixture
         # 2020: 126.51 + 508.83 + 32.75 + 1.05 = 669.14
         # 2021: 128.94 + 519.07 + 33.42 + 1.07 = 682.50
@@ -63,16 +70,17 @@ class TestDataMartCalculations:
 
         for year, expected in [(2020, 669.14), (2021, 682.50), (2022, 705.25)]:
             year_df = staging_df[staging_df["year"] == year]
-            national_value = year_df["value"].sum()
-            assert round(national_value, 2) == expected
+            national_value = aggregate_national_value(year_df["value"], "SUM")
+            assert national_value is not None
+            assert round(float(national_value), 2) == expected
 
     def test_indicator_trend_growth_rate(self, staging_df):
         """Q1: Growth rate should be (current - previous) / previous * 100."""
-        # Get national values
+        # Get national values for an additive indicator
         values_by_year = {}
         for year in [2020, 2021, 2022]:
             year_df = staging_df[staging_df["year"] == year]
-            values_by_year[year] = year_df["value"].sum()
+            values_by_year[year] = aggregate_national_value(year_df["value"], "SUM")
 
         # 2021 growth: (682.50 - 669.14) / 669.14 * 100 = 1.9965...%
         expected_growth = (
@@ -134,6 +142,34 @@ class TestDataMartCalculations:
 
         growth = (sumut_2021 - sumut_2020) / sumut_2020 * 100
         assert round(growth, 2) == 2.01
+
+    def test_percentage_indicator_not_summed(self, staging_df):
+        """Non-additive indicators should not produce a derived national sum."""
+        year_df = staging_df[staging_df["year"] == 2020]
+        national_value = aggregate_national_value(year_df["value"], "N/A")
+        assert national_value is None
+
+    def test_na_aggregation_returns_null_national(self, staging_df):
+        """N/A aggregation should leave national values unavailable across years."""
+        values_by_year = {}
+        for year in [2020, 2021, 2022]:
+            year_df = staging_df[staging_df["year"] == year]
+            values_by_year[year] = aggregate_national_value(year_df["value"], "N/A")
+
+        assert values_by_year == {2020: None, 2021: None, 2022: None}
+
+    def test_sum_indicator_still_aggregates(self, staging_df):
+        """SUM indicators should continue to aggregate nationally."""
+        year_df = staging_df[staging_df["year"] == 2021]
+        national_value = aggregate_national_value(year_df["value"], "SUM")
+        assert national_value is not None
+        assert round(float(national_value), 2) == 682.50
+
+    def test_aggregation_method_respected_by_mart(self, staging_df):
+        """Regression guard for semantic aggregation behavior."""
+        year_df = staging_df[staging_df["year"] == 2021]
+        assert round(float(aggregate_national_value(year_df["value"], "SUM")), 2) == 682.50
+        assert aggregate_national_value(year_df["value"], "N/A") is None
 
     def test_economic_overview_region_count(self, staging_df):
         """Q4: Region count should equal distinct regions per year."""

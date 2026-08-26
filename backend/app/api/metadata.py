@@ -3,7 +3,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import text
 
-from backend.app.db.database import engine
+from app.db.database import engine
 
 router = APIRouter(prefix="/api/metadata", tags=["metadata"])
 

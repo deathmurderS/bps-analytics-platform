@@ -3,7 +3,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
-from backend.app.config import settings
+from app.config import settings
 
 
 def create_db_engine() -> Engine:

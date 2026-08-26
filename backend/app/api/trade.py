@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
 
-from backend.app.db.database import engine
+from app.db.database import engine
 
 router = APIRouter(prefix="/api/trade", tags=["trade"])
 

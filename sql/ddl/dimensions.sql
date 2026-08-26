@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS warehouse.dim_region (
 -- Dimension: Indicator
 -- Enriched with glossary definitions (concept, definition, etc.)
 -- aggregation_method defines how the indicator should be aggregated
--- (SUM, AVG, N/A) — part of the semantic layer.
+-- (SUM, AVG, WEIGHTED_AVG, DIRECT_NATIONAL, N/A) — part of the semantic layer.
 CREATE TABLE IF NOT EXISTS warehouse.dim_indicator (
     indicator_key       VARCHAR(50) PRIMARY KEY,
     indicator_code      VARCHAR(50),
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS warehouse.dim_indicator (
     classification      TEXT,
     measure             TEXT,
     data_source         TEXT,
-    aggregation_method  VARCHAR(10) DEFAULT 'SUM',
+    aggregation_method  VARCHAR(20) DEFAULT 'SUM',
     UNIQUE (indicator_code, indicator_name)
 );
 

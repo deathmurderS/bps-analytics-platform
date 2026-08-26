@@ -181,3 +181,45 @@ class TestMetadataTransformer:
         )
 
         assert enriched.iloc[0]["concept"] == "Produk Domestik Regional Bruto"
+
+    def test_percentage_indicator_defaults_to_na_aggregation(self):
+        """Percentage indicators should not default to SUM."""
+        from src.pipeline import Pipeline
+
+        pipeline = Pipeline(api_key="dummy", domain="0000", var="192", periods="2023")
+        dim_indicator = pipeline._build_dim_indicator(
+            variables=[
+                {
+                    "variable_id": "192",
+                    "variable_name": "Persentase Penduduk Miskin (P0)",
+                }
+            ],
+            metadata={
+                "subject": "Kemiskinan dan Ketimpangan",
+                "unit": "Persen",
+                "frequency": "Tahunan",
+            },
+        )
+
+        assert dim_indicator.iloc[0]["aggregation_method"] == "N/A"
+
+    def test_additive_indicator_defaults_to_sum_aggregation(self):
+        """Additive indicators should continue to default to SUM."""
+        from src.pipeline import Pipeline
+
+        pipeline = Pipeline(api_key="dummy", domain="0000", var="145", periods="2023")
+        dim_indicator = pipeline._build_dim_indicator(
+            variables=[
+                {
+                    "variable_id": "145",
+                    "variable_name": "PDRB Atas Dasar Harga Konstan",
+                }
+            ],
+            metadata={
+                "subject": "Ekonomi",
+                "unit": "Miliar Rupiah",
+                "frequency": "Tahunan",
+            },
+        )
+
+        assert dim_indicator.iloc[0]["aggregation_method"] == "SUM"

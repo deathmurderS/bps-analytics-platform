@@ -8,10 +8,30 @@ export interface OverviewIndicator {
   region_count: number;
   current_value: number | null;
   yoy_growth: number | null;
+  national_value_status?: "available" | "unavailable";
 }
 
-export interface OverviewResponse {
-  indicators: OverviewIndicator[];
+export interface OverviewInsight {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  direction: "up" | "down" | "neutral";
+  value: string;
+}
+
+export interface OverviewApiResponse {
+  kpis: OverviewIndicator[];
+  trend: TrendPoint[];
+  regional: RegionalPoint[];
+  insights: OverviewInsight[];
+  metadata: IndicatorMetadata | null;
+  filters: {
+    domain: string | null;
+    year: number;
+    region: string;
+    indicator_key: string;
+  };
 }
 
 export interface TrendPoint {
@@ -111,4 +131,45 @@ export interface IndicatorListResponse {
     frequency: string | null;
     data_source: string | null;
   }>;
+}
+
+export interface OverviewDomainOption {
+  key: string;
+  subject_candidates: string[];
+  matched_subjects: string[];
+  available: boolean;
+}
+
+export interface OverviewDomainsResponse {
+  available_subjects: string[];
+  configured_domains: Record<
+    string,
+    {
+      subject_candidates: string[];
+      matched_subjects: string[];
+    }
+  >;
+  supported_domains: OverviewDomainOption[];
+}
+
+// ===== Filter & API Contract (FastAPI → Neon) =====
+
+export interface FilterOption<T = string> {
+  value: T;
+  label: string;
+}
+
+/**
+ * Single source of truth for the Overview global filters.
+ * All sections (KPI, trend, regional, metadata) are driven by this state.
+ */
+export interface OverviewFilters {
+  /** Stable API domain key. Empty string means no domain filter is sent. */
+  domain: string;
+  /** Selected indicator key — drives KPI, historical trend, and regional breakdown. */
+  indicatorKey: string;
+  /** Selected period; null = latest available year. */
+  year: number | null;
+  /** Current overview contract only supports the national scope. */
+  region: string;
 }

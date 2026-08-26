@@ -9,31 +9,51 @@
 DROP MATERIALIZED VIEW IF EXISTS mart.indicator_trend CASCADE;
 
 CREATE MATERIALIZED VIEW mart.indicator_trend AS
+WITH national_series AS (
+    SELECT
+        d.year,
+        i.indicator_key,
+        i.indicator_name,
+        i.unit,
+        i.frequency,
+        i.aggregation_method,
+        CASE
+            WHEN i.aggregation_method = 'SUM' THEN SUM(f.value)
+            WHEN i.aggregation_method = 'AVG' THEN AVG(f.value)
+            WHEN i.aggregation_method IN ('WEIGHTED_AVG', 'DIRECT_NATIONAL', 'N/A') THEN NULL
+            ELSE NULL
+        END AS national_value
+    FROM warehouse.fact_economic f
+    JOIN warehouse.dim_date d ON f.date_key = d.date_key
+    JOIN warehouse.dim_indicator i ON f.indicator_key = i.indicator_key
+    GROUP BY d.year, i.indicator_key, i.indicator_name, i.unit, i.frequency, i.aggregation_method
+)
 SELECT
-    d.year,
-    i.indicator_key,
-    i.indicator_name,
-    i.unit,
-    i.frequency,
-    SUM(f.value) AS national_value,
-    LAG(SUM(f.value)) OVER (
-        PARTITION BY i.indicator_key
-        ORDER BY d.year
+    year,
+    indicator_key,
+    indicator_name,
+    unit,
+    frequency,
+    national_value,
+    LAG(national_value) OVER (
+        PARTITION BY indicator_key
+        ORDER BY year
     ) AS previous_value,
-    ROUND(
-        ((SUM(f.value) - LAG(SUM(f.value)) OVER (
-            PARTITION BY i.indicator_key
-            ORDER BY d.year
-        )) / NULLIF(LAG(SUM(f.value)) OVER (
-            PARTITION BY i.indicator_key
-            ORDER BY d.year
-        ), 0) * 100)::numeric,
-        2
-    ) AS growth_pct
-FROM warehouse.fact_economic f
-JOIN warehouse.dim_date d ON f.date_key = d.date_key
-JOIN warehouse.dim_indicator i ON f.indicator_key = i.indicator_key
-GROUP BY d.year, i.indicator_key, i.indicator_name, i.unit, i.frequency;
+    CASE
+        WHEN national_value IS NULL THEN NULL
+        WHEN LAG(national_value) OVER (PARTITION BY indicator_key ORDER BY year) IS NULL THEN NULL
+        ELSE ROUND(
+            ((national_value - LAG(national_value) OVER (
+                PARTITION BY indicator_key
+                ORDER BY year
+            )) / NULLIF(LAG(national_value) OVER (
+                PARTITION BY indicator_key
+                ORDER BY year
+            ), 0) * 100)::numeric,
+            2
+        )
+    END AS growth_pct
+FROM national_series;
 
 CREATE INDEX IF NOT EXISTS idx_mart_indicator_trend_year
     ON mart.indicator_trend (year);
@@ -93,37 +113,61 @@ CREATE INDEX IF NOT EXISTS idx_mart_regional_perf_indicator
 DROP MATERIALIZED VIEW IF EXISTS mart.economic_overview CASCADE;
 
 CREATE MATERIALIZED VIEW mart.economic_overview AS
+WITH national_series AS (
+    SELECT
+        d.year,
+        i.indicator_key,
+        i.indicator_name,
+        i.unit,
+        i.frequency,
+        i.concept,
+        i.definition,
+        i.data_source,
+        i.aggregation_method,
+        CASE
+            WHEN i.aggregation_method = 'SUM' THEN SUM(f.value)
+            WHEN i.aggregation_method = 'AVG' THEN AVG(f.value)
+            WHEN i.aggregation_method IN ('WEIGHTED_AVG', 'DIRECT_NATIONAL', 'N/A') THEN NULL
+            ELSE NULL
+        END AS national_value,
+        COUNT(DISTINCT r.region_key) AS region_count
+    FROM warehouse.fact_economic f
+    JOIN warehouse.dim_date d ON f.date_key = d.date_key
+    JOIN warehouse.dim_region r ON f.region_key = r.region_key
+    JOIN warehouse.dim_indicator i ON f.indicator_key = i.indicator_key
+    GROUP BY d.year, i.indicator_key, i.indicator_name, i.unit, i.frequency,
+             i.concept, i.definition, i.data_source, i.aggregation_method
+)
 SELECT
-    d.year,
-    i.indicator_key,
-    i.indicator_name,
-    i.unit,
-    i.frequency,
-    i.concept,
-    i.definition,
-    i.data_source,
-    SUM(f.value) AS national_value,
-    LAG(SUM(f.value)) OVER (
-        PARTITION BY i.indicator_key
-        ORDER BY d.year
+    year,
+    indicator_key,
+    indicator_name,
+    unit,
+    frequency,
+    concept,
+    definition,
+    data_source,
+    national_value,
+    LAG(national_value) OVER (
+        PARTITION BY indicator_key
+        ORDER BY year
     ) AS previous_national_value,
-    ROUND(
-        ((SUM(f.value) - LAG(SUM(f.value)) OVER (
-            PARTITION BY i.indicator_key
-            ORDER BY d.year
-        )) / NULLIF(LAG(SUM(f.value)) OVER (
-            PARTITION BY i.indicator_key
-            ORDER BY d.year
-        ), 0) * 100)::numeric,
-        2
-    ) AS national_growth_pct,
-    COUNT(DISTINCT r.region_key) AS region_count
-FROM warehouse.fact_economic f
-JOIN warehouse.dim_date d ON f.date_key = d.date_key
-JOIN warehouse.dim_region r ON f.region_key = r.region_key
-JOIN warehouse.dim_indicator i ON f.indicator_key = i.indicator_key
-GROUP BY d.year, i.indicator_key, i.indicator_name, i.unit, i.frequency,
-         i.concept, i.definition, i.data_source;
+    CASE
+        WHEN national_value IS NULL THEN NULL
+        WHEN LAG(national_value) OVER (PARTITION BY indicator_key ORDER BY year) IS NULL THEN NULL
+        ELSE ROUND(
+            ((national_value - LAG(national_value) OVER (
+                PARTITION BY indicator_key
+                ORDER BY year
+            )) / NULLIF(LAG(national_value) OVER (
+                PARTITION BY indicator_key
+                ORDER BY year
+            ), 0) * 100)::numeric,
+            2
+        )
+    END AS national_growth_pct,
+    region_count
+FROM national_series;
 
 CREATE INDEX IF NOT EXISTS idx_mart_econ_overview_year
     ON mart.economic_overview (year);
