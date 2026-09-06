@@ -1,5 +1,6 @@
 """Backend API tests."""
 
+import os
 import sys
 from pathlib import Path
 
@@ -14,6 +15,13 @@ from app.api import overview
 
 client = TestClient(app)
 
+# Skip database-integration tests when DATABASE_URL is not available
+# (e.g., pull requests from forks where GitHub secrets are not exposed)
+requires_db = pytest.mark.skipif(
+    not os.getenv("DATABASE_URL"),
+    reason="DATABASE_URL environment variable is not set",
+)
+
 
 def test_health_endpoint():
     """Test the health check endpoint."""
@@ -24,6 +32,7 @@ def test_health_endpoint():
     assert data["version"] == "1.0.0"
 
 
+@requires_db
 def test_overview_endpoint():
     """Test the overview endpoint returns a response."""
     response = client.get("/api/overview")
@@ -31,42 +40,49 @@ def test_overview_endpoint():
     assert response.status_code in (200, 404)
 
 
+@requires_db
 def test_economic_trend_endpoint():
     """Test the economic trend endpoint."""
     response = client.get("/api/economic/trend")
     assert response.status_code in (200, 404)
 
 
+@requires_db
 def test_economic_regional_endpoint():
     """Test the economic regional endpoint."""
     response = client.get("/api/economic/regional")
     assert response.status_code in (200, 404)
 
 
+@requires_db
 def test_regional_ranking_endpoint():
     """Test the regional ranking endpoint."""
     response = client.get("/api/regional/ranking")
     assert response.status_code in (200, 404)
 
 
+@requires_db
 def test_trade_trend_endpoint():
     """Test the trade trend endpoint."""
     response = client.get("/api/trade/trend")
     assert response.status_code in (200, 404)
 
 
+@requires_db
 def test_trade_commodities_endpoint():
     """Test the trade commodities endpoint."""
     response = client.get("/api/trade/commodities")
     assert response.status_code in (200, 404)
 
 
+@requires_db
 def test_trade_partners_endpoint():
     """Test the trade partners endpoint."""
     response = client.get("/api/trade/partners")
     assert response.status_code in (200, 404)
 
 
+@requires_db
 def test_metadata_indicators_endpoint():
     """Test the metadata indicators endpoint."""
     response = client.get("/api/metadata/indicators")

@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.db.database import engine
 
@@ -12,7 +12,12 @@ router = APIRouter(prefix="/api/trade", tags=["trade"])
 
 
 def _handle_db_error(exc: Exception) -> None:
-    """Convert database errors to 404 if table doesn't exist."""
+    """Convert database errors to meaningful HTTP responses."""
+    if isinstance(exc, OperationalError):
+        raise HTTPException(
+            status_code=503,
+            detail="Database service unavailable. Please try again later.",
+        )
     if isinstance(exc, ProgrammingError) and "does not exist" in str(exc):
         raise HTTPException(status_code=404, detail="Trade data not available yet")
     raise exc
